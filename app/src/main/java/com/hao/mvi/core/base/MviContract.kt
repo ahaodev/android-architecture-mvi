@@ -1,4 +1,4 @@
-package com.hao.mvi.base
+package com.hao.mvi.core.base
 
 /**
  * Base interface for UI State - represents the current state of the screen

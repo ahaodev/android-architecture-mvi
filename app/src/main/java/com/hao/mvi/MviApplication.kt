@@ -1,7 +1,7 @@
 package com.hao.mvi
 
 import android.app.Application
-import com.hao.mvi.di.appModule
+import com.hao.mvi.di.appModules
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin
@@ -13,7 +13,7 @@ class MviApplication : Application() {
         startKoin {
             androidLogger(Level.DEBUG)
             androidContext(this@MviApplication)
-            modules(appModule)
+            modules(appModules)
         }
     }
 }

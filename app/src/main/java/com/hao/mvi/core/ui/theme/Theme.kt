@@ -1,4 +1,4 @@
-package com.hao.mvi.ui.theme
+package com.hao.mvi.core.ui.theme
 
 import android.app.Activity
 import android.os.Build
