@@ -4,42 +4,48 @@ import android.util.Log
 import androidx.lifecycle.viewModelScope
 import com.hao.mvi.base.BaseViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
-/**
- *  ViewModel
- *  flow see https://developer.android.com/kotlin/flow/stateflow-and-sharedflow?hl=zh-cn#sharedflow
- * @date 2022/10/14
- * @author 锅得铁
- * @since v1.0
- *
- */
-class MainViewModel : BaseViewModel<MainAction, MainUiState>() {
-    private var number: Int = 0
+class MainViewModel : BaseViewModel<MainState, MainEvent, MainEffect>() {
 
     companion object {
         private const val TAG = "MainViewModel"
     }
 
-    override fun doAction(action: MainAction) {
-        Log.d(TAG, "doAction: $action")
-        when (action) {
-            MainAction.Minus -> {
-                number--
-                send(MainUiState.Request(number))
-            }
-            MainAction.Plus -> {
-                viewModelScope.launch(Dispatchers.IO) {
-                    number++
-                    send(MainUiState.Request(number))
-                }
+    override fun createInitialState(): MainState = MainState()
+
+    override fun handleEvent(event: MainEvent) {
+        Log.d(TAG, "handleEvent: $event")
+        when (event) {
+            is MainEvent.Increment -> increment()
+            is MainEvent.Decrement -> decrement()
+            is MainEvent.Reset -> reset()
+        }
+    }
+
+    private fun increment() {
+        viewModelScope.launch(Dispatchers.IO) {
+            setState { copy(isLoading = true) }
+            delay(100) // Simulate async work
+            setState { copy(count = count + 1, isLoading = false) }
+            if (currentState.count % 5 == 0) {
+                setEffect(MainEffect.ShowToast("Count reached ${currentState.count}!"))
             }
         }
     }
 
+    private fun decrement() {
+        setState { copy(count = count - 1) }
+    }
+
+    private fun reset() {
+        setState { copy(count = 0) }
+        setEffect(MainEffect.ShowToast("Counter reset!"))
+    }
+
     override fun onCleared() {
         super.onCleared()
-        Log.d(TAG, "onCleared: $number")
+        Log.d(TAG, "onCleared: ${currentState.count}")
     }
 }

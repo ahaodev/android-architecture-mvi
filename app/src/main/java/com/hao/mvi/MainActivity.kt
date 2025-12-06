@@ -1,25 +1,17 @@
 package com.hao.mvi
 
-import android.content.res.Configuration
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import com.hao.mvi.R
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import com.hao.mvi.ui.theme.MviTheme
 
-/**
- * 
- * @see MainFragment
- *
- */
-class MainActivity : AppCompatActivity() {
-
+class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        setContentView(R.layout.activity_main)
-    }
-
-    //旋转屏幕时执行
-    override fun onConfigurationChanged(newConfig: Configuration) {
-        super.onConfigurationChanged(newConfig)
+        setContent {
+            MviTheme {
+                MainScreen()
+            }
+        }
     }
 }
