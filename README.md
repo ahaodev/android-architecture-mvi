@@ -22,7 +22,7 @@ Modern Android MVI architecture example with Jetpack Compose, Koin, and Navigati
 com.hao.mvi/
 │
 ├── MainActivity.kt                 # App entry, Compose + Navigation
-├── MviApplication.kt               # Koin initialization
+├── App.kt               # Koin initialization
 │
 ├── core/                           # 🔧 Core layer (shared across features)
 │   ├── base/                       # MVI infrastructure

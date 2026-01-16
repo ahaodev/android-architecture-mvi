@@ -20,7 +20,7 @@
 com.hao.mvi/
 │
 ├── MainActivity.kt                 # App 入口，Compose + Navigation
-├── MviApplication.kt               # Koin 初始化
+├── App.kt               # Koin 初始化
 │
 ├── core/                           # 🔧 核心层（跨 feature 共享）
 │   ├── base/                       # MVI 基础设施
