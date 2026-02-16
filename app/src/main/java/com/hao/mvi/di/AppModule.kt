@@ -6,7 +6,7 @@ import com.hao.mvi.feature.counter.domain.DecrementCounterUseCase
 import com.hao.mvi.feature.counter.domain.IncrementCounterUseCase
 import com.hao.mvi.feature.counter.domain.ResetCounterUseCase
 import com.hao.mvi.feature.counter.presentation.CounterViewModel
-import org.koin.androidx.viewmodel.dsl.viewModel
+import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val dataModule = module {
