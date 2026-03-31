@@ -3,7 +3,7 @@ package com.hao.mvi.feature.counter.data
 import kotlinx.coroutines.delay
 
 /**
- * Counter repository - data layer
+ * Counter repository — data layer.
  */
 interface CounterRepository {
     suspend fun increment(current: Int): Int
@@ -11,7 +11,7 @@ interface CounterRepository {
     suspend fun reset(): Int
 }
 
-class CounterRepositoryImpl : CounterRepository {
+class InMemoryCounterRepository : CounterRepository {
     
     override suspend fun increment(current: Int): Int {
         delay(100) // Simulate network/db delay

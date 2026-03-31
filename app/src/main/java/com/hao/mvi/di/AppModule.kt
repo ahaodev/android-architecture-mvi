@@ -1,7 +1,7 @@
 package com.hao.mvi.di
 
 import com.hao.mvi.feature.counter.data.CounterRepository
-import com.hao.mvi.feature.counter.data.CounterRepositoryImpl
+import com.hao.mvi.feature.counter.data.InMemoryCounterRepository
 import com.hao.mvi.feature.counter.domain.DecrementCounterUseCase
 import com.hao.mvi.feature.counter.domain.IncrementCounterUseCase
 import com.hao.mvi.feature.counter.domain.ResetCounterUseCase
@@ -10,7 +10,7 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val dataModule = module {
-    single<CounterRepository> { CounterRepositoryImpl() }
+    single<CounterRepository> { InMemoryCounterRepository() }
 }
 
 val domainModule = module {

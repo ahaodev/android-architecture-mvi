@@ -4,22 +4,24 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * Base ViewModel for MVI architecture
- * @param State UI state
- * @param Event User actions/intents
- * @param Effect One-time side effects
+ * Base ViewModel for MVI architecture.
+ *
+ * All one-time events (navigation, messages) are modeled as nullable fields in [State]
+ * and cleared after the UI consumes them, following the official Android architecture guide:
+ * "ViewModel events should always result in a UI state update."
+ *
+ * @param State UI state — immutable data class implementing [IUiState]
+ * @param Event User actions/intents — sealed class implementing [IUiEvent]
  */
-abstract class BaseViewModel<State : IViewState, Event : IViewEvent, Effect : IViewEffect>(
+abstract class BaseViewModel<State : IUiState, Event : IUiEvent>(
     private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main
 ) : ViewModel() {
 
@@ -27,15 +29,12 @@ abstract class BaseViewModel<State : IViewState, Event : IViewEvent, Effect : IV
 
     abstract fun createInitialState(): State
 
-    private val _viewState = MutableStateFlow(initialState)
-    val viewState: StateFlow<State> = _viewState.asStateFlow()
+    private val _uiState = MutableStateFlow(initialState)
+    val uiState: StateFlow<State> = _uiState.asStateFlow()
 
-    val currentState: State get() = _viewState.value
+    val currentState: State get() = _uiState.value
 
     private val _event = MutableSharedFlow<Event>()
-
-    private val _effect = Channel<Effect>(Channel.BUFFERED)
-    val effect = _effect.receiveAsFlow()
 
     init {
         subscribeToEvents()
@@ -58,12 +57,6 @@ abstract class BaseViewModel<State : IViewState, Event : IViewEvent, Effect : IV
     }
 
     protected fun setState(reduce: State.() -> State) {
-        _viewState.update { it.reduce() }
-    }
-
-    protected fun setEffect(effect: Effect) {
-        viewModelScope.launch(mainDispatcher) {
-            _effect.send(effect)
-        }
+        _uiState.update { it.reduce() }
     }
 }

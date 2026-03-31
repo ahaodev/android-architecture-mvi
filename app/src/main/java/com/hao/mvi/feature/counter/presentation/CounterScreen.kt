@@ -15,6 +15,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,7 +24,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.hao.mvi.core.base.ObserveAsEvents
 import com.hao.mvi.core.ui.theme.MviTheme
 import org.koin.androidx.compose.koinViewModel
 
@@ -32,17 +32,22 @@ fun CounterScreen(
     viewModel: CounterViewModel = koinViewModel(),
     onNavigateToDetail: (Int) -> Unit = {}
 ) {
-    val state by viewModel.viewState.collectAsStateWithLifecycle()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    ObserveAsEvents(viewModel.effect) { effect ->
-        when (effect) {
-            is CounterEffect.ShowToast -> {
-                Toast.makeText(context, effect.message, Toast.LENGTH_SHORT).show()
-            }
-            is CounterEffect.NavigateToDetail -> {
-                onNavigateToDetail(effect.count)
-            }
+    // Handle transient user message via state
+    state.userMessage?.let { message ->
+        LaunchedEffect(message) {
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            viewModel.sendEvent(CounterEvent.UserMessageShown)
+        }
+    }
+
+    // Handle navigation via state
+    state.navigateToDetail?.let { count ->
+        LaunchedEffect(count) {
+            onNavigateToDetail(count)
+            viewModel.sendEvent(CounterEvent.NavigationHandled)
         }
     }
 
@@ -57,7 +62,7 @@ fun CounterScreen(
 
 @Composable
 fun CounterContent(
-    state: CounterState,
+    state: CounterUiState,
     onIncrement: () -> Unit,
     onDecrement: () -> Unit,
     onReset: () -> Unit,
@@ -124,7 +129,7 @@ fun CounterContent(
 fun CounterContentPreview() {
     MviTheme {
         CounterContent(
-            state = CounterState(count = 42),
+            state = CounterUiState(count = 42),
             onIncrement = {},
             onDecrement = {},
             onReset = {}

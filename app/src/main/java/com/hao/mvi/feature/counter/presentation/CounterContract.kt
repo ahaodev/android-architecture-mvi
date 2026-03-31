@@ -1,22 +1,20 @@
 package com.hao.mvi.feature.counter.presentation
 
-import com.hao.mvi.core.base.IViewEffect
-import com.hao.mvi.core.base.IViewEvent
-import com.hao.mvi.core.base.IViewState
+import com.hao.mvi.core.base.IUiEvent
+import com.hao.mvi.core.base.IUiState
 
-data class CounterState(
+data class CounterUiState(
     val count: Int = 0,
-    val isLoading: Boolean = false
-) : IViewState
+    val isLoading: Boolean = false,
+    val userMessage: String? = null,
+    val navigateToDetail: Int? = null
+) : IUiState
 
-sealed class CounterEvent : IViewEvent {
+sealed class CounterEvent : IUiEvent {
     data object Increment : CounterEvent()
     data object Decrement : CounterEvent()
     data object Reset : CounterEvent()
     data object NavigateToDetail : CounterEvent()
-}
-
-sealed class CounterEffect : IViewEffect {
-    data class ShowToast(val message: String) : CounterEffect()
-    data class NavigateToDetail(val count: Int) : CounterEffect()
+    data object UserMessageShown : CounterEvent()
+    data object NavigationHandled : CounterEvent()
 }

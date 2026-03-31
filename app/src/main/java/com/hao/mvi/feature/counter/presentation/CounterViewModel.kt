@@ -1,6 +1,5 @@
 package com.hao.mvi.feature.counter.presentation
 
-import android.util.Log
 import androidx.lifecycle.viewModelScope
 import com.hao.mvi.core.base.BaseViewModel
 import com.hao.mvi.feature.counter.domain.DecrementCounterUseCase
@@ -12,21 +11,18 @@ class CounterViewModel(
     private val incrementUseCase: IncrementCounterUseCase,
     private val decrementUseCase: DecrementCounterUseCase,
     private val resetUseCase: ResetCounterUseCase
-) : BaseViewModel<CounterState, CounterEvent, CounterEffect>() {
+) : BaseViewModel<CounterUiState, CounterEvent>() {
 
-    companion object {
-        private const val TAG = "CounterViewModel"
-    }
-
-    override fun createInitialState(): CounterState = CounterState()
+    override fun createInitialState(): CounterUiState = CounterUiState()
 
     override fun handleEvent(event: CounterEvent) {
-        Log.d(TAG, "handleEvent: $event")
         when (event) {
             is CounterEvent.Increment -> increment()
             is CounterEvent.Decrement -> decrement()
             is CounterEvent.Reset -> reset()
             is CounterEvent.NavigateToDetail -> navigateToDetail()
+            is CounterEvent.UserMessageShown -> setState { copy(userMessage = null) }
+            is CounterEvent.NavigationHandled -> setState { copy(navigateToDetail = null) }
         }
     }
 
@@ -34,9 +30,12 @@ class CounterViewModel(
         viewModelScope.launch {
             setState { copy(isLoading = true) }
             val newCount = incrementUseCase(currentState.count)
-            setState { copy(count = newCount, isLoading = false) }
-            if (newCount % 5 == 0) {
-                setEffect(CounterEffect.ShowToast("Count reached $newCount!"))
+            setState {
+                copy(
+                    count = newCount,
+                    isLoading = false,
+                    userMessage = if (newCount % 5 == 0) "Count reached $newCount!" else null
+                )
             }
         }
     }
@@ -51,17 +50,11 @@ class CounterViewModel(
     private fun reset() {
         viewModelScope.launch {
             val newCount = resetUseCase()
-            setState { copy(count = newCount) }
-            setEffect(CounterEffect.ShowToast("Counter reset!"))
+            setState { copy(count = newCount, userMessage = "Counter reset!") }
         }
     }
 
     private fun navigateToDetail() {
-        setEffect(CounterEffect.NavigateToDetail(currentState.count))
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        Log.d(TAG, "onCleared: ${currentState.count}")
+        setState { copy(navigateToDetail = currentState.count) }
     }
 }

@@ -1,7 +1,7 @@
 package com.hao.mvi.core.base
 
 /**
- * Generic UI state wrapper for async operations
+ * Generic UI state wrapper for async operations.
  */
 sealed class UiState<out T> {
     
