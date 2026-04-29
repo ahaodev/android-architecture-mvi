@@ -44,9 +44,9 @@ fun CounterScreen(
     }
 
     // Handle navigation via state
-    state.navigateToDetail?.let { count ->
-        LaunchedEffect(count) {
-            onNavigateToDetail(count)
+    state.navigateToDetail?.let { navEvent ->
+        LaunchedEffect(navEvent.id) {
+            onNavigateToDetail(navEvent.count)
             viewModel.sendEvent(CounterEvent.NavigationHandled)
         }
     }

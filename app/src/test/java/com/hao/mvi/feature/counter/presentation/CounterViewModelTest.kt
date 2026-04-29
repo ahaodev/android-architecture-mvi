@@ -110,7 +110,7 @@ class CounterViewModelTest {
         viewModel.sendEvent(CounterEvent.Increment)
         viewModel.sendEvent(CounterEvent.NavigateToDetail)
 
-        assertEquals(2, viewModel.uiState.value.navigateToDetail)
+        assertEquals(2, viewModel.uiState.value.navigateToDetail?.count)
     }
 
     @Test
