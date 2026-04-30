@@ -11,16 +11,36 @@ Data flow: **UI → Event → ViewModel → State → UI** (unidirectional, no E
 
 ---
 
+## Examples in this codebase
+
+| File | Demonstrates |
+|------|-------------|
+| `feature/counter/presentation/CounterContract.kt` | NavigationEvent wrapper, transient message field |
+| `feature/counter/presentation/CounterViewModel.kt` | Mutex for rapid-fire events, setState pattern |
+| `feature/counter/presentation/CounterScreen.kt` | LaunchedEffect keyed on wrapper id, stateful/stateless split |
+| `feature/counter/domain/CounterUseCases.kt` | Multiple UseCases grouped in one file |
+| `feature/detail/presentation/DetailScreen.kt` | Pure UI destination — no ViewModel needed |
+
+---
+
 ## 1. Feature Structure
+
+**Stateful feature** (has its own business logic and state):
 
 ```
 feature/{name}/
-├── data/{Name}Repository.kt        # Interface + implementation
-├── domain/{Action}{Name}UseCase.kt  # One UseCase per action
+├── data/{Name}Repository.kt         # Interface + descriptive implementation
+├── domain/{Name}UseCases.kt         # One or more UseCases grouped per feature
 └── presentation/
     ├── {Name}Contract.kt            # UiState + Event
     ├── {Name}ViewModel.kt           # Extends BaseViewModel
     └── {Name}Screen.kt              # Composable UI
+```
+
+**Simple destination screen** (receives data as params, no business logic):
+
+```
+feature/{name}/presentation/{Name}Screen.kt   # Pure composable only
 ```
 
 Also create matching test files under `test/` and register dependencies in `di/AppModule.kt`.
@@ -30,12 +50,19 @@ Also create matching test files under `test/` and register dependencies in `di/A
 ## 2. Contract — `{Name}Contract.kt`
 
 ```kotlin
+// Navigation wrapper — UUID ensures LaunchedEffect re-fires even if the
+// destination/payload is identical to the previous navigation.
+data class {Name}NavigationEvent(
+    val {arg}: {ArgType},
+    val id: String = UUID.randomUUID().toString()
+)
+
 data class {Name}UiState(
     val isLoading: Boolean = false,
     val items: List<Item> = emptyList(),
     // Transient fields — nullable, default null, cleared after UI consumes
     val userMessage: String? = null,
-    val navigateTo{Target}: {ArgType}? = null
+    val navigateTo{Target}: {Name}NavigationEvent? = null
 ) : IUiState
 
 sealed class {Name}Event : IUiEvent {
@@ -48,6 +75,7 @@ sealed class {Name}Event : IUiEvent {
 
 - UiState must be a **data class** (not sealed class) — `setState { copy() }` depends on it.
 - Every field needs a default so `createInitialState()` works with no args.
+- Navigation uses a **wrapper with `id: String = UUID.randomUUID().toString()`** so `LaunchedEffect` fires even when the same payload is emitted twice in a row.
 - One-time events (toast, navigation) are nullable state fields, not a Channel — see §5.
 
 ---
@@ -58,6 +86,10 @@ sealed class {Name}Event : IUiEvent {
 class {Name}ViewModel(
     private val someUseCase: Some{Name}UseCase  // inject UseCases, not Repos
 ) : BaseViewModel<{Name}UiState, {Name}Event>() {
+
+    // Only needed when events read currentState, do async work, then write
+    // derived state — e.g., rapid Increment/Decrement buttons that race.
+    private val mutex = Mutex()
 
     override fun createInitialState(): {Name}UiState = {Name}UiState()
 
@@ -81,6 +113,7 @@ class {Name}ViewModel(
 
 - **No `android.*` imports** — keeps ViewModel pure-JVM testable.
 - `setState { copy(...) }` for all mutations, `currentState` for reads.
+- Add a `Mutex` only when an event does `currentState → async → setState` and can race under rapid repeated input. Don't add it by default.
 
 ---
 
