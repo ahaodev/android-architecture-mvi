@@ -130,19 +130,20 @@ fun {Name}Screen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    // Consume transient message (see §5 for pattern explanation)
+    // Key on navEvent.id (not the payload) so LaunchedEffect re-fires when
+    // the same destination is navigated to twice in a row.
+    state.navigateTo{Target}?.let { navEvent ->
+        LaunchedEffect(navEvent.id) {
+            onNavigateTo{Target}(navEvent.{arg})
+            viewModel.sendEvent({Name}Event.NavigationHandled)
+        }
+    }
+
+    // Key on message content — a new toast text = new LaunchedEffect execution.
     state.userMessage?.let { message ->
         LaunchedEffect(message) {
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             viewModel.sendEvent({Name}Event.UserMessageShown)
-        }
-    }
-
-    // Consume transient navigation
-    state.navigateTo{Target}?.let { arg ->
-        LaunchedEffect(arg) {
-            onNavigateTo{Target}(arg)
-            viewModel.sendEvent({Name}Event.NavigationHandled)
         }
     }
 
@@ -157,6 +158,7 @@ fun {Name}Content(state: {Name}UiState, onLoad: () -> Unit) {
 
 - Content composable takes only state + lambdas → previewable & testable.
 - Navigation via **lambda params**, not hardcoded `NavController`.
+- For simple destination screens with no business logic, skip the ViewModel entirely — just accept data as `@Composable fun {Name}Screen(data: Type, onBack: () -> Unit)` (see `DetailScreen`).
 
 ---
 
@@ -165,24 +167,31 @@ fun {Name}Content(state: {Name}UiState, onLoad: () -> Unit) {
 One-time events (toast, snackbar, navigation) follow a **set → consume → clear** cycle:
 
 ```
-ViewModel sets field        →  setState { copy(userMessage = "Saved!") }
+ViewModel sets field         →  setState { copy(userMessage = "Saved!") }
 UI consumes via LaunchedEffect  →  LaunchedEffect(message) { showToast(); sendEvent(Shown) }
-ViewModel clears field      →  setState { copy(userMessage = null) }
+ViewModel clears field       →  setState { copy(userMessage = null) }
 ```
 
-`LaunchedEffect(key)` fires once per unique key. When field resets to `null`, `?.let` doesn't execute, preventing re-triggers.
+`LaunchedEffect(key)` fires once per unique key. When the field resets to `null`, `?.let` doesn't execute, preventing re-triggers.
+
+**Choosing the LaunchedEffect key:**
+
+- `userMessage: String?` → key on the message string. Different messages = different toasts; same message repeated = fires again (acceptable).
+- `navigateTo{Screen}: {Name}NavigationEvent?` → key on `navEvent.id`. This ensures navigation fires even when the same destination is requested twice (same payload, different UUID).
 
 **Quick reference:**
 
-| Intent | State field |
-|--------|-------------|
-| Toast / Snackbar | `userMessage: String? = null` |
-| Navigate with arg | `navigateTo{Screen}: {ArgType}? = null` |
-| Navigate back | `navigateBack: Boolean? = null` |
-| Loading spinner | `isLoading: Boolean = false` |
-| Error display | `errorMessage: String? = null` |
-| Form input | `fieldName: String = ""` |
-| Validation error | `fieldError: String? = null` |
+| Intent | State field | LaunchedEffect key |
+|--------|-------------|-------------------|
+| Toast / Snackbar | `userMessage: String? = null` | `message` |
+| Navigate with arg | `navigateTo{Screen}: {Name}NavigationEvent? = null` | `navEvent.id` |
+| Navigate back | `navigateBack: {Name}NavigationEvent? = null` | `navEvent.id` |
+| Loading spinner | `isLoading: Boolean = false` | *(not transient)* |
+| Error display | `errorMessage: String? = null` | `errorMessage` |
+| Form input | `fieldName: String = ""` | *(not transient)* |
+| Validation error | `fieldError: String? = null` | `fieldError` |
+
+> **Why a wrapper for navigation?** If you store the raw destination value and the user navigates to the same screen twice with identical arguments, `LaunchedEffect` won't re-fire because the key hasn't changed. Wrapping in a data class with `id = UUID.randomUUID().toString()` guarantees each navigation emission is a distinct key.
 
 ---
 
@@ -200,11 +209,16 @@ class InMemory{Name}Repository : {Name}Repository {
 }
 ```
 
-**UseCase** — pure Kotlin, one action, `operator fun invoke()`:
+**UseCases** — pure Kotlin, one action per class, `operator fun invoke()`. Group related UseCases for the same feature in a single file:
 
 ```kotlin
+// {Name}UseCases.kt
 class Get{Name}DataUseCase(private val repository: {Name}Repository) {
     suspend operator fun invoke(): List<Item> = repository.getData()
+}
+
+class Save{Name}DataUseCase(private val repository: {Name}Repository) {
+    suspend operator fun invoke(item: Item) = repository.save(item)
 }
 ```
 
@@ -213,7 +227,8 @@ class Get{Name}DataUseCase(private val repository: {Name}Repository) {
 ```kotlin
 single<{Name}Repository> { InMemory{Name}Repository() }  // dataModule
 factory { Get{Name}DataUseCase(get()) }                   // domainModule
-viewModel { {Name}ViewModel(get()) }                      // viewModelModule
+factory { Save{Name}DataUseCase(get()) }
+viewModel { {Name}ViewModel(get(), get()) }               // viewModelModule
 ```
 
 ---
@@ -242,6 +257,16 @@ class {Name}ViewModelTest {
         viewModel.sendEvent({Name}Event.UserMessageShown)
         assertNull(viewModel.currentState.userMessage)
     }
+
+    // Verify the navigation wrapper carries a unique id on repeated triggers
+    @Test fun `navigation emits distinct ids on repeated requests`() {
+        viewModel.sendEvent({Name}Event.NavigateToDetail)
+        val first = viewModel.currentState.navigateTo{Target}?.id
+        viewModel.sendEvent({Name}Event.NavigationHandled)
+        viewModel.sendEvent({Name}Event.NavigateToDetail)
+        val second = viewModel.currentState.navigateTo{Target}?.id
+        assertNotEquals(first, second)
+    }
 }
 ```
 
@@ -253,18 +278,23 @@ class {Name}ViewModelTest {
 |----------|-----|--------------|
 | `Channel<Effect>` / `SharedFlow` for VM→UI events | Lost on config change | Nullable state field + cleanup event |
 | `sealed class` for UiState | Can't `copy()` | `data class` with defaults |
+| `LaunchedEffect(navArg)` for navigation | Won't re-fire if same arg emitted twice | Wrap in `NavigationEvent(arg, id = UUID)`, key on `id` |
 | Navigation without cleanup event | Re-triggers on recomposition | `sendEvent(NavigationHandled)` |
 | Android types (`Bitmap`, `Context`) in UiState | Untestable, may leak Activity | Primitive/serializable types only |
+| `Mutex` in every ViewModel | Unnecessary serialization of unrelated work | Add Mutex only when rapid repeated events race on `currentState` |
 
 ---
 
 ## 9. Checklist
 
 - [ ] UiState is `data class` with defaults; Event is `sealed class`
+- [ ] Navigation uses `NavigationEvent(arg, id = UUID.randomUUID().toString())`; LaunchedEffect keyed on `.id`
 - [ ] ViewModel: no `android.*` imports, uses `setState { copy() }`
+- [ ] Mutex added only if events race on `currentState` under rapid input
 - [ ] Screen: `collectAsStateWithLifecycle()`, transient state via `LaunchedEffect`
 - [ ] Repository interface + descriptive implementation name
-- [ ] UseCases: pure Kotlin, `operator fun invoke()`
+- [ ] UseCases: pure Kotlin, `operator fun invoke()`, grouped in one file per feature
 - [ ] DI registered in `AppModule.kt`
 - [ ] Tests with `UnconfinedTestDispatcher` and Fake implementations
-- [ ] `./gradlew assembleDebug && ./gradlew test` passes
+- [ ] Repeated navigation test confirms distinct ids
+- [ ] `./gradlew assembleDebug && ./gradlew testDebugUnitTest` passes
